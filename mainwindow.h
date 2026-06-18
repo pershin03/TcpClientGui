@@ -33,6 +33,7 @@ private:
     QLineEdit* m_emailInput;
     QPushButton* m_addUserButton;
     QPushButton* m_refreshTableButton;
+    QPushButton* m_deleteUserButton;
     QTableWidget* m_table;
 
     QTcpSocket* m_tcpSocket;
@@ -50,6 +51,7 @@ private:
 private slots:
     void onAddUserButtonClicked();
     void onRefreshClicked();
+    void onDeleteUserButtonClicked();
     void onReadyRead();
     void errorHandle();
     void onTimerTick();

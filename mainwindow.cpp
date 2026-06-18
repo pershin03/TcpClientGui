@@ -20,6 +20,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(m_addUserButton, &QPushButton::clicked, this, &MainWindow::onAddUserButtonClicked);
     connect(m_refreshTableButton, &QPushButton::clicked, this, &MainWindow::onRefreshClicked);
+    connect(m_deleteUserButton, &QPushButton::clicked, this, &MainWindow::onDeleteUserButtonClicked);
 
     connect(m_tcpSocket, &QTcpSocket::connected, this, [this]() {
         m_buffer.clear();
@@ -61,6 +62,7 @@ void MainWindow::setupUI()
 
     m_addUserButton = new QPushButton("Добавить пользователя", this);
     m_refreshTableButton = new QPushButton("Обновить таблицу", this);
+    m_deleteUserButton = new QPushButton("Удалить пользователя", this);
 
     m_table = new QTableWidget(this);
     m_table->setColumnCount(3);
@@ -70,6 +72,7 @@ void MainWindow::setupUI()
     mainLayout->addLayout(formLayout);
     mainLayout->addWidget(m_addUserButton);
     mainLayout->addWidget(m_refreshTableButton);
+    mainLayout->addWidget(m_deleteUserButton);
     mainLayout->addWidget(m_table);
 
     setCentralWidget(centralWidget);
@@ -155,12 +158,14 @@ void MainWindow::updateNetworkStatusUi(bool isConnected)
         setWindowTitle("Клиент управления пользователями");
         m_addUserButton->setEnabled(true);
         m_refreshTableButton->setEnabled(true);
+        m_deleteUserButton->setEnabled(true);
     }
     else
     {
         setWindowTitle("Клиент (Потеря связи. Переподключение...)");
         m_addUserButton->setEnabled(false);
         m_refreshTableButton->setEnabled(false);
+        m_deleteUserButton->setEnabled(false);
     }
 }
 
@@ -200,6 +205,28 @@ void MainWindow::onRefreshClicked()
     json j;
     j["action"] = "get_users";
     sendCommand(j);
+}
+
+void MainWindow::onDeleteUserButtonClicked()
+{
+    QString username = m_usernameInput->text().trimmed();
+    QString email = m_emailInput->text().trimmed();
+
+    if(username.isEmpty() || email.isEmpty())
+    {
+        showErrorMessage("Пожалуйста, заполните все поля!");
+        return;
+    }
+
+    json j;
+    j["action"] = "delete_user";
+    j["username"] = username.toStdString();
+    j["email"] = email.toStdString();
+    sendCommand(j);
+
+    m_usernameInput->clear();
+    m_emailInput->clear();
+
 }
 
 void MainWindow::onReadyRead()
