@@ -21,12 +21,16 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_refreshTableButton, &QPushButton::clicked, this, &MainWindow::onRefreshClicked);
 
     connect(m_tcpSocket, &QTcpSocket::connected, this, [this]() {
-        qDebug() << "Связь с сервером успешно установлена!";
         m_buffer.clear();
         m_missedHeartbeats = 0;
         updateNetworkStatusUi(true);
         onRefreshClicked();
     });
+    connect(m_tcpSocket, &QTcpSocket::disconnected, this, [this]() {
+        updateNetworkStatusUi(false);
+    });
+
+    updateNetworkStatusUi(false);
 
     m_tcpSocket->connectToHost("127.0.0.1", 12345);
 
