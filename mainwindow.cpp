@@ -2,7 +2,10 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QTimer>
 #include <QDebug>
+#include <QMessageBox>
+#include <QRegularExpression>
 #include <vector>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -17,9 +20,25 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(m_addUserButton, &QPushButton::clicked, this, &MainWindow::onAddUserButtonClicked);
     connect(m_refreshTableButton, &QPushButton::clicked, this, &MainWindow::onRefreshClicked);
+    connect(m_deleteUserButton, &QPushButton::clicked, this, &MainWindow::onDeleteUserButtonClicked);
+
+    connect(m_tcpSocket, &QTcpSocket::connected, this, [this]() {
+        m_buffer.clear();
+        m_missedHeartbeats = 0;
+        updateNetworkStatusUi(true);
+        onRefreshClicked();
+    });
+    connect(m_tcpSocket, &QTcpSocket::disconnected, this, [this]() {
+        updateNetworkStatusUi(false);
+    });
+
+    updateNetworkStatusUi(false);
 
     m_tcpSocket->connectToHost("127.0.0.1", 12345);
 
+    QTimer* timer = new QTimer(this);
+    connect(timer, &QTimer::timeout, this, &MainWindow::onTimerTick);
+    timer->start(5000);
 }
 
 MainWindow::~MainWindow()
@@ -43,6 +62,7 @@ void MainWindow::setupUI()
 
     m_addUserButton = new QPushButton("Добавить пользователя", this);
     m_refreshTableButton = new QPushButton("Обновить таблицу", this);
+    m_deleteUserButton = new QPushButton("Удалить пользователя", this);
 
     m_table = new QTableWidget(this);
     m_table->setColumnCount(3);
@@ -52,6 +72,7 @@ void MainWindow::setupUI()
     mainLayout->addLayout(formLayout);
     mainLayout->addWidget(m_addUserButton);
     mainLayout->addWidget(m_refreshTableButton);
+    mainLayout->addWidget(m_deleteUserButton);
     mainLayout->addWidget(m_table);
 
     setCentralWidget(centralWidget);
@@ -79,11 +100,11 @@ void MainWindow::parseResponse(const json& j)
 {
     std::string status = j.value("status", "");
 
-    // status: error, ok(ping pong), success
     if (status != "success")
     {
         std::string err = j.value("message", "");
         showErrorMessage(err);
+        return;
     }
 
     if (j.contains("users") && j["users"].is_array())
@@ -103,14 +124,13 @@ void MainWindow::parseResponse(const json& j)
     {
         std::string answer = j.value("message", "Пользователь успешно добавлен");
         showSuccessMessage(answer);
+        onRefreshClicked();
     }
-
-
 }
 
 void MainWindow::showErrorMessage(const std::string &err)
 {
-
+    QMessageBox::critical(this, "Ошибка", QString::fromStdString(err));
 }
 
 void MainWindow::renderUserTable(const std::vector<User> &users)
@@ -128,7 +148,25 @@ void MainWindow::renderUserTable(const std::vector<User> &users)
 
 void MainWindow::showSuccessMessage(const std::string &answer)
 {
+    QMessageBox::information(this, "Успех", QString::fromStdString(answer));
+}
 
+void MainWindow::updateNetworkStatusUi(bool isConnected)
+{
+    if(isConnected)
+    {
+        setWindowTitle("Клиент управления пользователями");
+        m_addUserButton->setEnabled(true);
+        m_refreshTableButton->setEnabled(true);
+        m_deleteUserButton->setEnabled(true);
+    }
+    else
+    {
+        setWindowTitle("Клиент (Потеря связи. Переподключение...)");
+        m_addUserButton->setEnabled(false);
+        m_refreshTableButton->setEnabled(false);
+        m_deleteUserButton->setEnabled(false);
+    }
 }
 
 void MainWindow::onAddUserButtonClicked()
@@ -139,6 +177,16 @@ void MainWindow::onAddUserButtonClicked()
     if(username.isEmpty() || email.isEmpty())
     {
         showErrorMessage("Пожалуйста, заполните все поля!");
+        return;
+    }
+
+    QRegularExpression emailRegex("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}$");
+    QRegularExpressionMatch matchEmail = emailRegex.match(email);
+
+    if(!matchEmail.hasMatch())
+    {
+        showErrorMessage("Неверный формат Email!");
+        return;
     }
 
     json j;
@@ -159,8 +207,31 @@ void MainWindow::onRefreshClicked()
     sendCommand(j);
 }
 
+void MainWindow::onDeleteUserButtonClicked()
+{
+    QString username = m_usernameInput->text().trimmed();
+    QString email = m_emailInput->text().trimmed();
+
+    if(username.isEmpty() || email.isEmpty())
+    {
+        showErrorMessage("Пожалуйста, заполните все поля!");
+        return;
+    }
+
+    json j;
+    j["action"] = "delete_user";
+    j["username"] = username.toStdString();
+    j["email"] = email.toStdString();
+    sendCommand(j);
+
+    m_usernameInput->clear();
+    m_emailInput->clear();
+
+}
+
 void MainWindow::onReadyRead()
 {
+    m_missedHeartbeats = 0;
     m_buffer.append(m_tcpSocket->readAll());
 
     while(m_buffer.contains('\n'))
@@ -179,14 +250,39 @@ void MainWindow::onReadyRead()
             {
                 qDebug() << "Error parse json from server: " << e.what();
             }
-
         }
     }
 }
 
 void MainWindow::errorHandle()
 {
+    if (m_tcpSocket->error() != QAbstractSocket::RemoteHostClosedError)
+    {
+        qWarning() << "Ошибка сетевого сокета клиента:" << m_tcpSocket->errorString();
+    }
+}
 
+void MainWindow::onTimerTick()
+{
+    if(m_tcpSocket->state() == QTcpSocket::UnconnectedState)
+    {
+        updateNetworkStatusUi(false);
+        m_tcpSocket->connectToHost("127.0.0.1", 12345);
+    }
+    else if(m_tcpSocket->state() == QTcpSocket::ConnectedState)
+    {
+        updateNetworkStatusUi(true);
+        m_missedHeartbeats++;
+        if(m_missedHeartbeats >= 3)
+        {
+            qDebug() << "Timeout heartbeat.";
+            m_tcpSocket->abort();
+            showErrorMessage("Сервер перестал отвечать на запросы!");
+            return;
+        }
+    }
+
+    onRefreshClicked();
 }
 
 
