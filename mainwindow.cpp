@@ -122,7 +122,7 @@ void MainWindow::parseResponse(const json& j)
     }
     else
     {
-        std::string answer = j.value("message", "Пользователь успешно добавлен");
+        std::string answer = j.value("message", "Операция успешно выполнена");
         showSuccessMessage(answer);
         onRefreshClicked();
     }
