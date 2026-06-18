@@ -37,17 +37,21 @@ private:
 
     QTcpSocket* m_tcpSocket;
     QByteArray m_buffer;
+    int m_missedHeartbeats;
 
     void sendCommand(const json& j);
     void parseResponse(const json& j);
+
     void showErrorMessage(const std::string& err);
     void renderUserTable(const std::vector<User>& users);
     void showSuccessMessage(const std::string& answer);
+    void updateNetworkStatusUi(bool isConnected);
 
 private slots:
     void onAddUserButtonClicked();
     void onRefreshClicked();
     void onReadyRead();
     void errorHandle();
+    void onTimerTick();
 };
 #endif // MAINWINDOW_H
