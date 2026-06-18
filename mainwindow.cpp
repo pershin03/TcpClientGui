@@ -5,6 +5,7 @@
 #include <QTimer>
 #include <QDebug>
 #include <QMessageBox>
+#include <QRegularExpression>
 #include <vector>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -171,6 +172,15 @@ void MainWindow::onAddUserButtonClicked()
     if(username.isEmpty() || email.isEmpty())
     {
         showErrorMessage("Пожалуйста, заполните все поля!");
+        return;
+    }
+
+    QRegularExpression emailRegex("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}$");
+    QRegularExpressionMatch matchEmail = emailRegex.match(email);
+
+    if(!matchEmail.hasMatch())
+    {
+        showErrorMessage("Неверный формат Email!");
         return;
     }
 
