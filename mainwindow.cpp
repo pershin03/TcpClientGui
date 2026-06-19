@@ -68,6 +68,8 @@ void MainWindow::setupUI()
     m_table->setColumnCount(3);
     m_table->setHorizontalHeaderLabels({"ID", "Username", "Email"});
     m_table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_table->setSelectionMode(QAbstractItemView::SingleSelection);
 
     mainLayout->addLayout(formLayout);
     mainLayout->addWidget(m_addUserButton);
@@ -209,12 +211,31 @@ void MainWindow::onRefreshClicked()
 
 void MainWindow::onDeleteUserButtonClicked()
 {
-    QString username = m_usernameInput->text().trimmed();
-    QString email = m_emailInput->text().trimmed();
-
-    if(username.isEmpty() || email.isEmpty())
+    int currentRow = m_table->currentRow();
+    if (currentRow < 0)
     {
-        showErrorMessage("Пожалуйста, заполните все поля!");
+        showErrorMessage("Пожалуйста, выберите пользователя в таблице для удаления!");
+        return;
+    }
+
+    QTableWidgetItem* usernameItem = m_table->item(currentRow, 1);
+    QTableWidgetItem* emailItem = m_table->item(currentRow, 2);
+
+    if (!usernameItem || !emailItem)
+    {
+        showErrorMessage("Ошибка чтения данных из таблицы!");
+        return;
+    }
+
+    QString username = usernameItem->text().trimmed();
+    QString email = emailItem->text().trimmed();
+
+    auto reply = QMessageBox::question(this, "Подтверждение удаления",
+                                       QString("Вы уверены, что хотите удалить пользователя %1 (%2)?").arg(username, email),
+                                       QMessageBox::Yes | QMessageBox::No);
+
+    if (reply == QMessageBox::No)
+    {
         return;
     }
 
@@ -222,6 +243,7 @@ void MainWindow::onDeleteUserButtonClicked()
     j["action"] = "delete_user";
     j["username"] = username.toStdString();
     j["email"] = email.toStdString();
+
     sendCommand(j);
 
     m_usernameInput->clear();
