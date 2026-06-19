@@ -182,6 +182,15 @@ void MainWindow::onAddUserButtonClicked()
         return;
     }
 
+    QRegularExpression usernameRegex("^[a-zA-Z0-9_-]{3,20}$");
+    QRegularExpressionMatch matchUsername = usernameRegex.match(username);
+
+    if(!matchUsername.hasMatch())
+    {
+        showErrorMessage("Неверный формат имени! Разрешены только латинские буквы, цифры, знаки '_' и '-'. Длина от 3 до 20 символов.");
+        return;
+    }
+
     QRegularExpression emailRegex("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}$");
     QRegularExpressionMatch matchEmail = emailRegex.match(email);
 
