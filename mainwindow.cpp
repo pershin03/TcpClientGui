@@ -299,8 +299,15 @@ void MainWindow::onTimerTick()
     {
         updateNetworkStatusUi(false);
         m_tcpSocket->connectToHost("127.0.0.1", 12345);
+        return;
     }
-    else if(m_tcpSocket->state() == QTcpSocket::ConnectedState)
+
+    if(m_tcpSocket->state() == QTcpSocket::ConnectingState)
+    {
+        return;
+    }
+
+    if(m_tcpSocket->state() == QTcpSocket::ConnectedState)
     {
         updateNetworkStatusUi(true);
         m_missedHeartbeats++;
@@ -308,7 +315,6 @@ void MainWindow::onTimerTick()
         {
             qDebug() << "Timeout heartbeat.";
             m_tcpSocket->abort();
-            showErrorMessage("Сервер перестал отвечать на запросы!");
             return;
         }
     }
