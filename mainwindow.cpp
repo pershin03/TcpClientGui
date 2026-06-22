@@ -137,14 +137,39 @@ void MainWindow::showErrorMessage(const std::string &err)
 
 void MainWindow::renderUserTable(const std::vector<User> &users)
 {
+    QString selectedEmail = "";
+    int currentRow = m_table->currentRow();
+    if(currentRow >= 0)
+    {
+        QTableWidgetItem* emailItem = m_table->item(currentRow, 2);
+        if (emailItem)
+        {
+            selectedEmail = emailItem->text();
+        }
+    }
+
     m_table->setRowCount(0);
+    int rowToSelect = -1;
     int row = 0;
     for (const auto& user : users) {
         m_table->insertRow(row);
         m_table->setItem(row, 0, new QTableWidgetItem(QString::number(user.id)));
         m_table->setItem(row, 1, new QTableWidgetItem(QString::fromStdString(user.username)));
-        m_table->setItem(row, 2, new QTableWidgetItem(QString::fromStdString(user.email)));
+
+        QString currentEmail = QString::fromStdString(user.email);
+        m_table->setItem(row, 2, new QTableWidgetItem(currentEmail));
+
+        if (!selectedEmail.isEmpty() && currentEmail == selectedEmail)
+        {
+            rowToSelect = row;
+        }
         row++;
+    }
+
+    if (rowToSelect >= 0)
+    {
+        m_table->setCurrentCell(rowToSelect, 0);
+        m_table->selectRow(rowToSelect);
     }
 }
 
@@ -166,7 +191,6 @@ void MainWindow::updateNetworkStatusUi(bool isConnected)
     {
         setWindowTitle("Клиент (Потеря связи. Переподключение...)");
         m_addUserButton->setEnabled(false);
-        m_refreshTableButton->setEnabled(false);
         m_deleteUserButton->setEnabled(false);
     }
 }
