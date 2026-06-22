@@ -32,7 +32,6 @@ private:
     QLineEdit* m_usernameInput;
     QLineEdit* m_emailInput;
     QPushButton* m_addUserButton;
-    QPushButton* m_refreshTableButton;
     QPushButton* m_deleteUserButton;
     QTableWidget* m_table;
 
@@ -50,7 +49,7 @@ private:
 
 private slots:
     void onAddUserButtonClicked();
-    void onRefreshClicked();
+    void updateUsers();
     void onDeleteUserButtonClicked();
     void onReadyRead();
     void errorHandle();

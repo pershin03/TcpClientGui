@@ -19,14 +19,16 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_tcpSocket, &QTcpSocket::errorOccurred, this, &MainWindow::errorHandle);
 
     connect(m_addUserButton, &QPushButton::clicked, this, &MainWindow::onAddUserButtonClicked);
-    connect(m_refreshTableButton, &QPushButton::clicked, this, &MainWindow::onRefreshClicked);
     connect(m_deleteUserButton, &QPushButton::clicked, this, &MainWindow::onDeleteUserButtonClicked);
+    connect(m_table, &QTableWidget::itemSelectionChanged, this, [this]() {
+        m_deleteUserButton->setEnabled(m_table->currentRow() >= 0);
+    });
 
     connect(m_tcpSocket, &QTcpSocket::connected, this, [this]() {
         m_buffer.clear();
         m_missedHeartbeats = 0;
         updateNetworkStatusUi(true);
-        onRefreshClicked();
+        updateUsers();
     });
     connect(m_tcpSocket, &QTcpSocket::disconnected, this, [this]() {
         updateNetworkStatusUi(false);
@@ -61,7 +63,6 @@ void MainWindow::setupUI()
     formLayout->addWidget(m_emailInput);
 
     m_addUserButton = new QPushButton("Добавить пользователя", this);
-    m_refreshTableButton = new QPushButton("Обновить таблицу", this);
     m_deleteUserButton = new QPushButton("Удалить пользователя", this);
 
     m_table = new QTableWidget(this);
@@ -73,7 +74,6 @@ void MainWindow::setupUI()
 
     mainLayout->addLayout(formLayout);
     mainLayout->addWidget(m_addUserButton);
-    mainLayout->addWidget(m_refreshTableButton);
     mainLayout->addWidget(m_deleteUserButton);
     mainLayout->addWidget(m_table);
 
@@ -126,7 +126,7 @@ void MainWindow::parseResponse(const json& j)
     {
         std::string answer = j.value("message", "Операция успешно выполнена");
         showSuccessMessage(answer);
-        onRefreshClicked();
+        updateUsers();
     }
 }
 
@@ -184,8 +184,7 @@ void MainWindow::updateNetworkStatusUi(bool isConnected)
     {
         setWindowTitle("Клиент управления пользователями");
         m_addUserButton->setEnabled(true);
-        m_refreshTableButton->setEnabled(true);
-        m_deleteUserButton->setEnabled(true);
+        m_deleteUserButton->setEnabled(false);
     }
     else
     {
@@ -235,7 +234,7 @@ void MainWindow::onAddUserButtonClicked()
     sendCommand(j);
 }
 
-void MainWindow::onRefreshClicked()
+void MainWindow::updateUsers()
 {
     json j;
     j["action"] = "get_users";
@@ -343,7 +342,7 @@ void MainWindow::onTimerTick()
         }
     }
 
-    onRefreshClicked();
+    updateUsers();
 }
 
 
